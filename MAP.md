@@ -26,6 +26,11 @@ Per-module live view (PHASE-01 §9). Updates as migration proceeds. Original pat
 | approval | intercept (ask) | crates/approval | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
 | budget | agent/budget.go | crates/budget | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
 | assets/companies | db/assets.go, db/companies.go | crates/assets | sqlx, serde | IMPLEMENTED (models + counts + query + company CRUD) | TESTED (integration) | gate pending | query_by_company/task by-type not yet wired | — | wire QueryByCompany/QueryByTask into /api/assets; add upsert endpoints |
+| tasks | db/tasks.go, task_categories, task_templates | crates/tasks | sqlx, serde | IMPLEMENTED (Task + categories + templates + counts) | TESTED (13 tests) | gate pending | task_context hydration, archive, cascade delete not ported | — | wire POST/PATCH/DELETE routes; add archive |
+| findings | db/findings.go, finding_retests | crates/findings | sqlx, serde | IMPLEMENTED (Finding + retests + stats + groups) | TESTED (7 tests) | gate pending | archived cold-storage merge, conversation wiring not ported | — | add create/update/delete routes |
+| exploration | db/exploration.go (read side) | crates/exploration | sqlx, serde | IMPLEMENTED (graph/nodes/frontier/intents/activity/tokens) | TESTED (5 tests) | gate pending | write/claim/agent path out of scope | — | add more read routes (nodes, frontier, intents) |
+| llm | agent/provider.go, llmpool, llmrec, db/config.go | crates/llm | sqlx, serde | IMPLEMENTED (profiles + health + records + usage) | TESTED (9 tests) | gate pending | HTTP streaming, secret sealing not ported | — | add provider CRUD routes |
+| settings | db/config.go, db/settings.go | crates/settings | sqlx, serde | IMPLEMENTED (typed getters/setters + stats) | TESTED (5 tests) | gate pending | secret encryption, full stats engine fields | — | add PUT /api/settings |
 | exploration | db exploration layer | crates/exploration | database | NOT_ANALYZED | — | — | — | — | Wave 1 |
 | traffic | traffic/ | crates/traffic | rusqlite | NOT_ANALYZED | — | — | — | SQLite FTS5 | Wave 6 |
 | proxy | traffic/ (MITM) | crates/proxy | rustls, hyper, rcgen | NOT_ANALYZED | — | — | — | go-mitmproxy no equiv | Wave 6 |

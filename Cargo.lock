@@ -35,10 +35,15 @@ dependencies = [
  "axum",
  "config",
  "database",
+ "exploration",
+ "findings",
+ "llm",
  "reqwest",
  "serde",
  "serde_json",
+ "settings",
  "sqlx",
+ "tasks",
  "thiserror",
  "tokio",
  "tower",
@@ -284,6 +289,7 @@ checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
  "num-traits",
+ "serde",
  "windows-link",
 ]
 
@@ -518,6 +524,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "exploration"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -528,6 +547,18 @@ name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
+
+[[package]]
+name = "findings"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "flume"
@@ -1128,6 +1159,19 @@ name = "litemap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
+
+[[package]]
+name = "llm"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "lock_api"
@@ -1786,6 +1830,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "settings"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2182,6 +2238,18 @@ checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "tasks"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

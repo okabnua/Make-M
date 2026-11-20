@@ -7,16 +7,21 @@
 use assets::{AssetStore, CompanyStore};
 use auth::{AuthError, LoginLimiter};
 use axum::{
-    extract::{ConnectInfo, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use exploration::ExplorationStore;
+use findings::{FindingFilter, FindingStore};
+use llm::{LlmProfileStore, LlmRecordFilter, LlmRecordStore};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use settings::SettingsStore;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use tasks::{ListTasksOptions, TaskStore};
 
 use database::Db;
 
@@ -30,12 +35,24 @@ pub struct AppState {
     pub build_version: Arc<String>,
     pub assets: Arc<AssetStore>,
     pub companies: Arc<CompanyStore>,
+    pub tasks: Arc<TaskStore>,
+    pub findings: Arc<FindingStore>,
+    pub exploration: Arc<ExplorationStore>,
+    pub llm_profiles: Arc<LlmProfileStore>,
+    pub llm_records: Arc<LlmRecordStore>,
+    pub settings: Arc<SettingsStore>,
 }
 
 impl AppState {
     pub fn new(db: Db, jwt_key: Vec<u8>, build_version: String) -> Self {
         let assets = Arc::new(AssetStore::new(db.clone()));
         let companies = Arc::new(CompanyStore::new(db.clone()));
+        let tasks = Arc::new(TaskStore::new(db.clone()));
+        let findings = Arc::new(FindingStore::new(db.clone()));
+        let exploration = Arc::new(ExplorationStore::new(db.clone()));
+        let llm_profiles = Arc::new(LlmProfileStore::new(db.clone()));
+        let llm_records = Arc::new(LlmRecordStore::new(db.clone()));
+        let settings = Arc::new(SettingsStore::new(db.clone()));
         Self {
             db,
             jwt_key: Arc::new(jwt_key),
@@ -44,6 +61,12 @@ impl AppState {
             build_version: Arc::new(build_version),
             assets,
             companies,
+            tasks,
+            findings,
+            exploration,
+            llm_profiles,
+            llm_records,
+            settings,
         }
     }
 }
@@ -62,6 +85,19 @@ pub fn router(state: AppState) -> Router {
         .route("/api/assets", get(list_assets))
         .route("/api/assets/counts", get(asset_counts))
         .route("/api/companies", get(list_companies))
+        .route("/api/tasks", get(list_tasks))
+        .route("/api/tasks/{id}", get(get_task))
+        .route("/api/task-categories", get(list_task_categories))
+        .route("/api/task-templates", get(list_task_templates))
+        .route("/api/exploration/findings", get(list_findings))
+        .route("/api/exploration/findings/stats", get(finding_stats_route))
+        .route("/api/exploration/findings/{id}", get(get_finding))
+        .route("/api/exploration/graph", get(exploration_graph))
+        .route("/api/exploration/activity", get(exploration_activity))
+        .route("/api/llm/profiles", get(list_llm_profiles))
+        .route("/api/llm/records", get(list_llm_records))
+        .route("/api/stats", get(stats))
+        .route("/api/settings", get(get_settings))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_auth,
@@ -410,6 +446,211 @@ async fn asset_counts(State(state): State<AppState>) -> Response {
 async fn list_companies(State(state): State<AppState>) -> Response {
     match state.companies.list().await {
         Ok(companies) => json_response(StatusCode::OK, serde_json::to_value(companies).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tasks handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct TaskListQuery {
+    status: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+async fn list_tasks(State(state): State<AppState>, Query(q): Query<TaskListQuery>) -> Response {
+    let opts = ListTasksOptions {
+        status: q.status,
+        limit: q.limit,
+        offset: q.offset,
+    };
+    match state.tasks.list(&opts).await {
+        Ok(tasks) => json_response(StatusCode::OK, serde_json::to_value(tasks).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn get_task(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
+    match state.tasks.get(id).await {
+        Ok(Some(t)) => json_response(StatusCode::OK, serde_json::to_value(t).unwrap()),
+        Ok(None) => err_response(StatusCode::NOT_FOUND, "task not found"),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn list_task_categories(State(state): State<AppState>) -> Response {
+    match state.tasks.list_task_categories().await {
+        Ok(v) => json_response(StatusCode::OK, serde_json::to_value(v).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn list_task_templates(State(state): State<AppState>) -> Response {
+    match state.tasks.list_task_templates().await {
+        Ok(v) => json_response(StatusCode::OK, serde_json::to_value(v).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Findings handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct FindingListQuery {
+    severity: Option<String>,
+    status: Option<String>,
+    verification_status: Option<String>,
+    vulnclass: Option<String>,
+    task_id: Option<String>,
+    q: Option<String>,
+    sort: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+fn finding_filter_from(q: FindingListQuery) -> (FindingFilter, i64, i64) {
+    let filter = FindingFilter {
+        severity: q.severity.unwrap_or_default(),
+        status: q.status.unwrap_or_default(),
+        verification_status: q.verification_status.unwrap_or_default(),
+        vulnclass: q.vulnclass.unwrap_or_default(),
+        task_id: q.task_id.unwrap_or_default(),
+        query: q.q.unwrap_or_default(),
+        sort: q.sort.unwrap_or_default(),
+    };
+    let limit = q.limit.unwrap_or(50).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    (filter, limit, offset)
+}
+
+async fn list_findings(
+    State(state): State<AppState>,
+    Query(q): Query<FindingListQuery>,
+) -> Response {
+    let (filter, limit, offset) = finding_filter_from(q);
+    match state.findings.list(&filter, limit, offset).await {
+        Ok((items, total)) => json_response(
+            StatusCode::OK,
+            json!({ "count": items.len(), "total": total, "findings": items }),
+        ),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn finding_stats_route(State(state): State<AppState>) -> Response {
+    match state.findings.stats().await {
+        Ok(s) => json_response(StatusCode::OK, serde_json::to_value(s).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn get_finding(State(state): State<AppState>, Path(id): Path<i64>) -> Response {
+    match state.findings.get(id).await {
+        Ok(Some(f)) => json_response(StatusCode::OK, serde_json::to_value(f).unwrap()),
+        Ok(None) => err_response(StatusCode::NOT_FOUND, "finding not found"),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Exploration handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct ExplorationQuery {
+    task: Option<String>,
+    task_id: Option<i64>,
+    since: Option<i64>,
+    intent: Option<i64>,
+    limit: Option<i64>,
+}
+
+fn exploration_id(q: &ExplorationQuery) -> i64 {
+    q.task_id
+        .or_else(|| q.task.as_deref().and_then(|s| s.parse().ok()))
+        .unwrap_or(0)
+}
+
+async fn exploration_graph(
+    State(state): State<AppState>,
+    Query(q): Query<ExplorationQuery>,
+) -> Response {
+    let eid = exploration_id(&q);
+    match state.exploration.graph(eid).await {
+        Ok(g) => json_response(StatusCode::OK, serde_json::to_value(g).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn exploration_activity(
+    State(state): State<AppState>,
+    Query(q): Query<ExplorationQuery>,
+) -> Response {
+    let eid = exploration_id(&q);
+    let limit = q.limit.unwrap_or(300).max(1);
+    match state
+        .exploration
+        .activity(eid, q.since.unwrap_or(0), q.intent, limit)
+        .await
+    {
+        Ok(page) => json_response(StatusCode::OK, serde_json::to_value(page).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LLM handlers
+// ---------------------------------------------------------------------------
+
+async fn list_llm_profiles(State(state): State<AppState>) -> Response {
+    match state.llm_profiles.list().await {
+        Ok(v) => json_response(StatusCode::OK, serde_json::to_value(v).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+#[derive(Deserialize)]
+struct LlmRecordQuery {
+    task_id: Option<String>,
+    model: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+async fn list_llm_records(
+    State(state): State<AppState>,
+    Query(q): Query<LlmRecordQuery>,
+) -> Response {
+    let filter = LlmRecordFilter {
+        task_id: q.task_id,
+        model: q.model,
+        limit: q.limit.unwrap_or(50).max(1),
+        offset: q.offset.unwrap_or(0).max(0),
+    };
+    match state.llm_records.list(filter).await {
+        Ok(page) => json_response(StatusCode::OK, serde_json::to_value(page).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stats & settings handlers
+// ---------------------------------------------------------------------------
+
+async fn stats(State(state): State<AppState>) -> Response {
+    match state.settings.stats().await {
+        Ok(s) => json_response(StatusCode::OK, serde_json::to_value(s).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn get_settings(State(state): State<AppState>) -> Response {
+    match state.settings.list_all().await {
+        Ok(map) => json_response(StatusCode::OK, serde_json::to_value(map).unwrap()),
         Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     }
 }

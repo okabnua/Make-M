@@ -8,6 +8,11 @@ members = [
     "crates/auth",
     "crates/api",
     "crates/assets",
+    "crates/tasks",
+    "crates/findings",
+    "crates/exploration",
+    "crates/llm",
+    "crates/settings",
     "app",
 ]
 
