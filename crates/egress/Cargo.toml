@@ -1,0 +1,12 @@
+[package]
+name = "egress"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "HTTP noise governor / rate limiter (port of ARTEX egress/)"
+
+[dependencies]
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+url = { workspace = true }

@@ -13,6 +13,11 @@ members = [
     "crates/exploration",
     "crates/llm",
     "crates/settings",
+    "crates/guard",
+    "crates/interception",
+    "crates/egress",
+    "crates/budget",
+    "crates/traffic",
     "app",
 ]
 

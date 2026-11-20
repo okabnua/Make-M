@@ -1,0 +1,22 @@
+[package]
+name = "interception"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Interception rules/argv/judge/target-gate (port of ARTEX intercept/)"
+
+[dependencies]
+async-trait = "0.1"
+database = { path = "../database" }
+guard = { path = "../guard" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+regex = "1"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
