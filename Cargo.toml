@@ -7,6 +7,7 @@ members = [
     "crates/database",
     "crates/auth",
     "crates/api",
+    "crates/assets",
     "app",
 ]
 

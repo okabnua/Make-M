@@ -8,6 +8,7 @@ description = "HTTP API layer (port of ARTEX server/)"
 
 [dependencies]
 auth = { path = "../auth" }
+assets = { path = "../assets" }
 database = { path = "../database" }
 config = { path = "../config" }
 axum = { version = "0.7", features = ["macros"] }

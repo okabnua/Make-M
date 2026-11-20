@@ -1,0 +1,17 @@
+[package]
+name = "assets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Asset & company data layer (port of ARTEX db/assets.go, db/companies.go)"
+
+[dependencies]
+database = { path = "../database" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

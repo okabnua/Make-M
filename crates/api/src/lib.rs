@@ -4,9 +4,10 @@
 //! vertical slice of handlers (health + auth). The remaining ~140 routes from
 //! API-INVENTORY.md are added incrementally, each verified against the original.
 
+use assets::{AssetStore, CompanyStore};
 use auth::{AuthError, LoginLimiter};
 use axum::{
-    extract::{ConnectInfo, State},
+    extract::{ConnectInfo, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -27,16 +28,22 @@ pub struct AppState {
     pub login_limiter: Arc<Mutex<LoginLimiter>>,
     pub setup_token: Arc<Mutex<Option<String>>>,
     pub build_version: Arc<String>,
+    pub assets: Arc<AssetStore>,
+    pub companies: Arc<CompanyStore>,
 }
 
 impl AppState {
     pub fn new(db: Db, jwt_key: Vec<u8>, build_version: String) -> Self {
+        let assets = Arc::new(AssetStore::new(db.clone()));
+        let companies = Arc::new(CompanyStore::new(db.clone()));
         Self {
             db,
             jwt_key: Arc::new(jwt_key),
             login_limiter: Arc::new(Mutex::new(LoginLimiter::new())),
             setup_token: Arc::new(Mutex::new(None)),
             build_version: Arc::new(build_version),
+            assets,
+            companies,
         }
     }
 }
@@ -52,6 +59,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/auth/init", post(auth_init))
         .route("/api/auth/login", post(auth_login))
         .route("/api/auth/change-password", post(auth_change_password))
+        .route("/api/assets", get(list_assets))
+        .route("/api/assets/counts", get(asset_counts))
+        .route("/api/companies", get(list_companies))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_auth,
@@ -324,6 +334,83 @@ async fn auth_change_password(
             StatusCode::INTERNAL_SERVER_ERROR,
             &format!("Save failed: {e}"),
         ),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Assets & companies handlers
+// ---------------------------------------------------------------------------
+
+const DEFAULT_ASSET_PAGE_SIZE: i64 = 50;
+const MAX_ASSET_PAGE_SIZE: i64 = 500;
+
+#[derive(Deserialize)]
+struct AssetQuery {
+    #[serde(rename = "type")]
+    typ: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+    company_id: Option<i64>,
+    task_id: Option<i64>,
+}
+
+async fn list_assets(State(state): State<AppState>, Query(q): Query<AssetQuery>) -> Response {
+    let mut limit = q.limit.unwrap_or(0);
+    if limit <= 0 {
+        limit = DEFAULT_ASSET_PAGE_SIZE;
+    } else if limit > MAX_ASSET_PAGE_SIZE {
+        limit = MAX_ASSET_PAGE_SIZE;
+    }
+    let offset = q.offset.unwrap_or(0).max(0);
+    let typ = q.typ.clone().unwrap_or_default();
+
+    // Resolve the filter the same way the original listAssets does.
+    let (assets, total) = if let Some(cid) = q.company_id.filter(|c| *c > 0) {
+        let t = state
+            .assets
+            .count_by_company(cid, if typ.is_empty() { None } else { Some(&typ) })
+            .await
+            .unwrap_or(0);
+        (Vec::new(), t)
+    } else if let Some(tid) = q.task_id.filter(|t| *t > 0) {
+        let total = state
+            .assets
+            .count_by_task(tid, if typ.is_empty() { None } else { Some(&typ) })
+            .await;
+        (Vec::new(), total.unwrap_or(0))
+    } else {
+        let typ = if typ.is_empty() {
+            "root_domain".to_string()
+        } else {
+            typ
+        };
+        match state.assets.query_by_type(&typ, limit, offset).await {
+            Ok(assets) => {
+                let total = state.assets.count_by_type(&typ).await.unwrap_or(0);
+                (assets, total)
+            }
+            Err(e) => return err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        }
+    };
+
+    let count = assets.len();
+    json_response(
+        StatusCode::OK,
+        json!({ "count": count, "total": total, "assets": assets }),
+    )
+}
+
+async fn asset_counts(State(state): State<AppState>) -> Response {
+    match state.assets.counts_by_type().await {
+        Ok(counts) => json_response(StatusCode::OK, serde_json::to_value(counts).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    }
+}
+
+async fn list_companies(State(state): State<AppState>) -> Response {
+    match state.companies.list().await {
+        Ok(companies) => json_response(StatusCode::OK, serde_json::to_value(companies).unwrap()),
+        Err(e) => err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     }
 }
 

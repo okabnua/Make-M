@@ -30,6 +30,7 @@ dependencies = [
 name = "api"
 version = "0.1.0"
 dependencies = [
+ "assets",
  "auth",
  "axum",
  "config",
@@ -56,6 +57,18 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "assets"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

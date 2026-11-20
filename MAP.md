@@ -25,8 +25,7 @@ Per-module live view (PHASE-01 §9). Updates as migration proceeds. Original pat
 | scope | intercept/target_* | crates/scope | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
 | approval | intercept (ask) | crates/approval | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
 | budget | agent/budget.go | crates/budget | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
-| graph | db exploration/asset | crates/graph | database | NOT_ANALYZED | — | — | — | — | Wave 1/4 |
-| assets | db asset layer | crates/assets | database | NOT_ANALYZED | — | — | — | — | Wave 1 |
+| assets/companies | db/assets.go, db/companies.go | crates/assets | sqlx, serde | IMPLEMENTED (models + counts + query + company CRUD) | TESTED (integration) | gate pending | query_by_company/task by-type not yet wired | — | wire QueryByCompany/QueryByTask into /api/assets; add upsert endpoints |
 | exploration | db exploration layer | crates/exploration | database | NOT_ANALYZED | — | — | — | — | Wave 1 |
 | traffic | traffic/ | crates/traffic | rusqlite | NOT_ANALYZED | — | — | — | SQLite FTS5 | Wave 6 |
 | proxy | traffic/ (MITM) | crates/proxy | rustls, hyper, rcgen | NOT_ANALYZED | — | — | — | go-mitmproxy no equiv | Wave 6 |
