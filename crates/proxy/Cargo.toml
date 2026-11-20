@@ -1,0 +1,18 @@
+[package]
+name = "proxy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "MITM recording proxy: TLS interception + capture (port of ARTEX traffic/ MITM)"
+
+[dependencies]
+traffic = { path = "../traffic" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+rcgen = "0.13"
+reqwest = { version = "0.12", features = ["json"] }
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["full"] }

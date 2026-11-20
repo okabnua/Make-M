@@ -1,0 +1,19 @@
+[package]
+name = "notifications"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "IM/email notification channels (port of ARTEX notify/)"
+
+[dependencies]
+database = { path = "../database" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+reqwest = { version = "0.12", features = ["json"] }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

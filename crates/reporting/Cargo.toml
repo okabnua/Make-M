@@ -1,0 +1,11 @@
+[package]
+name = "reporting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Markdown/CSV report generation (port of ARTEX report/)"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+thiserror = { workspace = true }

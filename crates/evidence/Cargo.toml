@@ -1,0 +1,19 @@
+[package]
+name = "evidence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Content-addressed evidence blobs (port of ARTEX evidence/)"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+database = { path = "../database" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+sha2 = "0.10"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

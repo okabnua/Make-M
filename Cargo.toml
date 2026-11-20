@@ -18,6 +18,12 @@ members = [
     "crates/egress",
     "crates/budget",
     "crates/traffic",
+    "crates/evidence",
+    "crates/reporting",
+    "crates/enrichment",
+    "crates/mcp",
+    "crates/notifications",
+    "crates/proxy",
     "app",
 ]
 
