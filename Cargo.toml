@@ -25,6 +25,7 @@ members = [
     "crates/notifications",
     "crates/proxy",
     "crates/engine",
+    "crates/agent",
     "app",
 ]
 

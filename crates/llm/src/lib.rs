@@ -2,16 +2,25 @@
 //! (config model), `llmpool/health.go`, `llmrec/llmrec.go` and the LLM profile,
 //! record and usage parts of `db/`.
 //!
-//! This crate covers the DB + config model + circuit-breaker bookkeeping. The
-//! live HTTP streaming path (provider construction, SSE, proxies, retries) is
-//! intentionally out of scope and remains unported.
+//! This crate covers the DB + config model + circuit-breaker bookkeeping, plus a
+//! focused non-streaming live client ([`LlmClient`]) for the four wire formats.
+//! Streaming (SSE), the tool-use loop, proxies beyond `http`/`https`, and
+//! retry/rate-limit scheduling remain out of scope.
 //!
 //! `api_key` is write-only on the wire (matching Go's `json:"-"`): it is never
 //! serialized, and `LlmProfile`'s `Debug` impl redacts it. Use
 //! [`LlmProfile::redact`] before logging or returning a profile to a caller
-//! that must not see credentials.
+//! that must not see credentials. [`LlmClient`] likewise redacts the key in its
+//! `Debug` output and never logs it.
 
 #![forbid(unsafe_code)]
+
+mod client;
+
+pub use client::{
+    ChatMessage, ChatRequest, ChatResponse, LlmClient, TokenUsage, ToolCall, ToolDef,
+    DEFAULT_OLLAMA_BASE_URL, OLLAMA_PLACEHOLDER_KEY,
+};
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use database::Db;
@@ -29,6 +38,12 @@ pub enum LlmError {
     NotFound(String),
     #[error("invalid: {0}")]
     Invalid(String),
+    #[error("http: {0}")]
+    Http(#[from] reqwest::Error),
+    #[error("api status {status}: {body}")]
+    Api { status: u16, body: String },
+    #[error("parse: {0}")]
+    Parse(String),
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+[package]
+name = "agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "LLM-backed planner/worker (concrete engine traits; port of ARTEX agent/planner.go, worker.go)"
+
+[dependencies]
+engine = { path = "../engine" }
+exploration = { path = "../exploration" }
+llm = { path = "../llm" }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
