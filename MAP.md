@@ -1,0 +1,44 @@
+# MAP — module migration map
+
+Per-module live view (PHASE-01 §9). Updates as migration proceeds. Original paths are relative to `ARTEX/`.
+
+| Module | Original path | Rust path | Dependencies | Migration status | Test status | Gate status | Known mismatches | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| config | config/config.go | crates/config | serde, url, thiserror | IMPLEMENTED | TESTED (6 unit + diff vs Go) | — | none | none | run rust-anything gate on crate |
+| core (enums) | db/constants.go | crates/core | — | IMPLEMENTED | TESTED (1) | — | none | none | expand with more enums |
+| database | db/ | crates/database | sqlx | IMPLEMENTED (schema+migrations+seed) | TESTED (integration + parity) | gate pending | none | none | typed repos for assets/companies/tasks/explorations |
+| migrations | db/schema.sql | crates/migrations | sha2 | IMPLEMENTED | TESTED (7 unit) | gate pending | none | none | (done) |
+| auth | server/auth.go | crates/auth | jsonwebtoken, bcrypt | IMPLEMENTED | TESTED (8 unit + Go JWT interop) | gate pending | none | none | (done) |
+| api | server/ (slice) | crates/api | axum | IMPLEMENTED (health+auth) | TESTED (e2e + Go interop) | gate pending | ~140 routes remain | — | add remaining routes from API-INVENTORY |
+| app | cmd/artex | app/ | tokio, axum | IMPLEMENTED (serve+shutdown) | smoke-tested | — | only health+auth wired | — | wire more subsystems |
+| auth | server/auth.go | crates/auth | jsonwebtoken, bcrypt | NOT_ANALYZED | — | — | — | — | Wave 1 |
+| api | server/ | crates/api | axum | NOT_ANALYZED | — | — | — | ~140 routes | Wave 8 |
+| agent | agent/ | crates/agent | tokio, llm | NOT_ANALYZED | — | — | — | norma SDK no equiv | Wave 4 |
+| planner | agent/planner.go | crates/planner | agent | NOT_ANALYZED | — | — | — | 43KB | Wave 4 |
+| worker | agent/worker.go | crates/worker | agent | NOT_ANALYZED | — | — | — | 40KB | Wave 4 |
+| llm | agent/provider.go | crates/llm | reqwest | NOT_ANALYZED | — | — | — | 4 provider formats | Wave 3 |
+| llm-providers | agent/provider.go | crates/llm-providers | llm | NOT_ANALYZED | — | — | — | — | Wave 3 |
+| llmpool | llmpool/ | crates/llm (pool) | llm | NOT_ANALYZED | — | — | — | circuit breaker | Wave 3 |
+| llmrec | llmrec/ | crates/llm (record) | llm | NOT_ANALYZED | — | — | — | — | Wave 3 |
+| guard | guard/ | crates/guard | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
+| intercept | intercept/ | crates/interception | fancy-regex | NOT_ANALYZED | — | — | — | argv parser, LLM judge | Wave 2 |
+| scope | intercept/target_* | crates/scope | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
+| approval | intercept (ask) | crates/approval | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
+| budget | agent/budget.go | crates/budget | — | NOT_ANALYZED | — | — | — | — | Wave 2 |
+| graph | db exploration/asset | crates/graph | database | NOT_ANALYZED | — | — | — | — | Wave 1/4 |
+| assets | db asset layer | crates/assets | database | NOT_ANALYZED | — | — | — | — | Wave 1 |
+| exploration | db exploration layer | crates/exploration | database | NOT_ANALYZED | — | — | — | — | Wave 1 |
+| traffic | traffic/ | crates/traffic | rusqlite | NOT_ANALYZED | — | — | — | SQLite FTS5 | Wave 6 |
+| proxy | traffic/ (MITM) | crates/proxy | rustls, hyper, rcgen | NOT_ANALYZED | — | — | — | go-mitmproxy no equiv | Wave 6 |
+| evidence | evidence/ | crates/evidence | sha2 | NOT_ANALYZED | — | — | — | — | Wave 6 |
+| findings | db/findings | crates/findings | database | NOT_ANALYZED | — | — | — | — | Wave 6 |
+| retester | agent/retester.go | crates/retester | agent | NOT_ANALYZED | — | — | — | — | Wave 6 |
+| enrichment | enrich/ | crates/enrichment | hickory-dns, reqwest | NOT_ANALYZED | — | — | — | dnsx no equiv | Wave 6 |
+| reporting | report/ | crates/reporting | — | NOT_ANALYZED | — | — | — | — | Wave 6 |
+| notifications | notify/ | crates/notifications | reqwest | NOT_ANALYZED | — | — | — | 7 channels | Wave 7 |
+| mcp | mcphttp/ | crates/mcp | rmcp/custom | NOT_ANALYZED | — | — | — | Streamable HTTP + SSE | Wave 7 |
+| egress | egress/ | crates/egress | governor | NOT_ANALYZED | — | — | — | — | Wave 2 |
+| search | settings | crates/search | reqwest | NOT_ANALYZED | — | — | — | brave/tavily | Wave 7 |
+| sidequestion | sidequestion/ | crates/agent (sq) | agent | NOT_ANALYZED | — | — | — | — | Wave 4 |
+| scheduler | server/scheduler.go | crates/scheduler | tokio | NOT_ANALYZED | — | — | — | — | Wave 8 |
+| app | cmd/artex | app/ | all | NOT_ANALYZED | — | — | — | — | Wave 9 |

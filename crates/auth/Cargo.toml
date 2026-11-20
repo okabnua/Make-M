@@ -1,0 +1,16 @@
+[package]
+name = "auth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JWT auth, password hashing, login rate limit (port of ARTEX server/auth.go)"
+
+[dependencies]
+jsonwebtoken = "9"
+bcrypt = "0.15"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+subtle = "2"
+thiserror = { workspace = true }
+tracing = "0.1"

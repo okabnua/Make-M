@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+
+# Original ARTEX source is a read-only reference clone (re-clonable from GitHub)
+/ARTEX
+
+# Local secrets / keys
+*.key
+/tmp
+
+# OS / editor
+.DS_Store

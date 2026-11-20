@@ -1,0 +1,21 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "artex Rust backend binary (port of cmd/artex)"
+
+[[bin]]
+name = "artex"
+path = "src/main.rs"
+
+[dependencies]
+api = { path = "../crates/api" }
+auth = { path = "../crates/auth" }
+config = { path = "../crates/config" }
+database = { path = "../crates/database" }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = { version = "0.7", features = ["macros"] }

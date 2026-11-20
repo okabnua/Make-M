@@ -1,0 +1,16 @@
+[package]
+name = "database"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "PostgreSQL data layer (port of ARTEX db/)"
+
+[dependencies]
+config = { path = "../config" }
+migrations = { path = "../migrations" }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "macros"] }
+tokio = { version = "1", features = ["full"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = "0.1"

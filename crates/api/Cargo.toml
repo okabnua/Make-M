@@ -1,0 +1,24 @@
+[package]
+name = "api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "HTTP API layer (port of ARTEX server/)"
+
+[dependencies]
+auth = { path = "../auth" }
+database = { path = "../database" }
+config = { path = "../config" }
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
+tower = "0.5"
+tracing = "0.1"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full", "test-util"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres"] }
