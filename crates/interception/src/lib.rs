@@ -393,6 +393,7 @@ fn argv_rule_matches(cr: &CompiledRule, tool_name: &str, tool_input: &Value) -> 
 
 /// Evaluate the enabled rules in priority order (DESC, then id ASC) and return
 /// the decision of the first match, or `None` when nothing matches.
+#[allow(dead_code)]
 fn evaluate(rules: &[InterceptRule], tool_name: &str, tool_input: &Value) -> Option<HookDecision> {
     let mut ordered: Vec<&InterceptRule> = rules.iter().filter(|r| r.enabled).collect();
     ordered.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
@@ -595,6 +596,7 @@ fn is_wrapper(name: &str) -> bool {
 /// Derive the argv prefix of a command (Go `ArgvPrefix`). `Ok(None)` means the
 /// command is not one simple command; `Err(())` means a prefix token is not
 /// literal or is a flag.
+#[allow(clippy::result_unit_err)]
 pub fn argv_prefix(command: &str) -> Result<Option<Vec<String>>, ()> {
     // Not one simple command (compound / pipe / redirection / wrapper / ...):
     // the command yields no prefix, but this is not an error.
@@ -1277,7 +1279,7 @@ impl TargetList {
             let addr = grp(&caps, 1);
             if let Ok(ip) = addr.parse::<IpAddr>() {
                 let mut port = 0u16;
-                if let Some(p) = grp(&caps, 2).parse::<u32>().ok() {
+                if let Ok(p) = grp(&caps, 2).parse::<u32>() {
                     port = p as u16;
                 }
                 self.add(Target::new("ip", ip.to_string(), port));
@@ -1542,10 +1544,10 @@ fn metadata_addrs() -> Vec<IpAddr> {
     vec![
         "fd00:ec2::254"
             .parse()
-            .unwrap_or_else(|_| IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)),
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)),
         "100.100.100.200"
             .parse()
-            .unwrap_or_else(|_| IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)),
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)),
     ]
 }
 
@@ -1801,6 +1803,7 @@ impl TargetScope {
         (self.task_id.unwrap_or(0), self.conversation_id.unwrap_or(0))
     }
 
+    #[allow(dead_code)]
     fn scope_name(&self) -> String {
         if let Some(t) = self.task_id {
             format!("task {t}")
@@ -1938,7 +1941,7 @@ impl InterceptorImpl {
 
         // Block rules come first, matched on the declared form before resolving.
         if let Some(t) = declared.first() {
-            if let Some(rule) = match_asset_rules(&rules, &[t.host.clone()], &[], &[]) {
+            if let Some(rule) = match_asset_rules(&rules, std::slice::from_ref(&t.host), &[], &[]) {
                 return Ok(TargetCheck {
                     blocked: Some(format!(
                         "{} is blocked by an asset rule. {}",
@@ -1954,10 +1957,8 @@ impl InterceptorImpl {
         let mut seen: HashSet<String> = HashSet::new();
         for t in declared {
             let key = target_key(&t.host, t.port);
-            if ex.stored.contains_key(&key) {
-                if exemption_holds(&t).await {
-                    continue;
-                }
+            if ex.stored.contains_key(&key) && exemption_holds(&t).await {
+                continue;
             }
             let pins = active_pins(&self.db, scope, &t.host, t.port).await?;
             let resolved = if t.kind == "ip" {

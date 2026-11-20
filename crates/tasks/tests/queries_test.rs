@@ -7,6 +7,11 @@ use tasks::{
     InterceptRuleInput, ListTasksOptions, TaskCreateOptions, TaskStatus, TaskStore,
     TaskTemplateInput,
 };
+use tokio::sync::Mutex;
+
+/// Serializes the integration tests so they do not interfere through the shared
+/// `itest_%` rows on one Postgres instance.
+static LOCK: Mutex<()> = Mutex::const_new(());
 
 fn dsn() -> Option<String> {
     std::env::var("ARTEX_PG_DSN")
@@ -30,6 +35,7 @@ async fn cleanup(db: &database::Db) {
 
 #[tokio::test]
 async fn task_crud_round_trip() {
+    let _guard = LOCK.lock().await;
     let Some(dsn) = dsn() else { return };
     let db = match open(&dsn).await {
         Ok(db) => db,
@@ -226,6 +232,7 @@ async fn task_crud_round_trip() {
 
 #[tokio::test]
 async fn create_task_with_options_conflicts() {
+    let _guard = LOCK.lock().await;
     let Some(dsn) = dsn() else { return };
     let db = match open(&dsn).await {
         Ok(db) => db,
