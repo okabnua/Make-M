@@ -18,6 +18,14 @@ use serde_json::Value;
 use sqlx::postgres::PgRow;
 use sqlx::Row;
 
+/// Generate a fresh random fencing token for an intent claim (Go `newUnclaimToken`).
+fn new_unclaim_token() -> String {
+    use rand::RngCore;
+    let mut buf = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut buf);
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 /// Exploration node kinds (`exploration_nodes.kind`), port of `db/constants.go`.
 pub mod node_kind {
     /// DEPRECATED: legacy task root; new tasks seed an origin fact instead.
@@ -303,6 +311,12 @@ impl ExplorationStore {
         Self { db }
     }
 
+    /// Access the underlying Postgres pool (for callers that issue their own
+    /// queries against the exploration tables, e.g. the engine).
+    pub fn pool(&self) -> &sqlx::PgPool {
+        self.db.pool()
+    }
+
     /// The whole exploration chain (nodes + edges) for graph viz, matching the
     /// Go `/api/exploration/graph` reads: up to 2000 nodes (id order) and 5000
     /// edges.
@@ -424,6 +438,164 @@ ORDER BY id DESC LIMIT $2"
             }
         };
         rows.iter().map(scan_node).collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Intent lifecycle (port of db/exploration.go intent state machine)
+    // -----------------------------------------------------------------------
+
+    /// Any intent still in play (open OR running) — race-proof first-round check.
+    pub async fn has_active_intent(&self, exploration_id: i64) -> Result<bool, ExplorationError> {
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM exploration_nodes \
+             WHERE exploration_id=$1 AND kind='intent' AND state IN ('open','running'))",
+        )
+        .bind(exploration_id)
+        .fetch_one(self.db.pool())
+        .await?;
+        Ok(exists)
+    }
+
+    /// Whether any goal is still open (open ⇒ task not yet complete).
+    pub async fn has_open_goal(&self, exploration_id: i64) -> Result<bool, ExplorationError> {
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM exploration_nodes \
+             WHERE exploration_id=$1 AND kind='goal' AND state='open')",
+        )
+        .bind(exploration_id)
+        .fetch_one(self.db.pool())
+        .await?;
+        Ok(exists)
+    }
+
+    /// Atomically move an open intent to running with a fresh fencing token.
+    /// Returns the token, or `None` when the intent was not claimable.
+    pub async fn claim_intent_token(
+        &self,
+        exploration_id: i64,
+        id: i64,
+        owner: &str,
+    ) -> Result<Option<String>, ExplorationError> {
+        let token = new_unclaim_token();
+        let res = sqlx::query(
+            "UPDATE exploration_nodes SET state='running', owner=$1, unclaim_token=$4, \
+             last_heartbeat_at=now() \
+             WHERE id=$2 AND exploration_id=$3 AND kind='intent' AND state='open'",
+        )
+        .bind(owner)
+        .bind(id)
+        .bind(exploration_id)
+        .bind(&token)
+        .execute(self.db.pool())
+        .await?;
+        if res.rows_affected() == 1 {
+            Ok(Some(token))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Paused → running counterpart of [`claim_intent_token`] (human-message path).
+    pub async fn claim_paused_intent_token(
+        &self,
+        exploration_id: i64,
+        id: i64,
+    ) -> Result<Option<String>, ExplorationError> {
+        let token = new_unclaim_token();
+        let res = sqlx::query(
+            "UPDATE exploration_nodes SET state='running', blocked_reason=NULL, \
+             content_version=content_version+1, completed_at=NULL, unclaim_token=$3, last_heartbeat_at=now() \
+             WHERE id=$1 AND exploration_id=$2 AND kind='intent' AND state='paused'",
+        )
+        .bind(id)
+        .bind(exploration_id)
+        .bind(&token)
+        .execute(self.db.pool())
+        .await?;
+        if res.rows_affected() == 1 {
+            Ok(Some(token))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Set an intent's state. Terminal states stamp `completed_at`; reopening
+    /// (back to open/running) clears it. Returns whether a row changed.
+    pub async fn set_intent_state(
+        &self,
+        exploration_id: i64,
+        id: i64,
+        state: &str,
+    ) -> Result<bool, ExplorationError> {
+        let terminal = matches!(state, "done" | "failed" | "cancelled");
+        let res = sqlx::query(
+            "UPDATE exploration_nodes SET state=$3, \
+             completed_at = CASE WHEN $4 THEN now() ELSE NULL END \
+             WHERE id=$1 AND exploration_id=$2 AND kind='intent'",
+        )
+        .bind(id)
+        .bind(exploration_id)
+        .bind(state)
+        .bind(terminal)
+        .execute(self.db.pool())
+        .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    /// Reset all running intents back to open (recovery on startup), clearing the
+    /// claim token. Returns the number of rows affected.
+    pub async fn reset_running_intents(
+        &self,
+        exploration_id: i64,
+    ) -> Result<u64, ExplorationError> {
+        let res = sqlx::query(
+            "UPDATE exploration_nodes SET state='open', completed_at=NULL, blocked_reason=NULL, \
+             unclaim_token=NULL \
+             WHERE exploration_id=$1 AND kind='intent' AND state='running'",
+        )
+        .bind(exploration_id)
+        .execute(self.db.pool())
+        .await?;
+        Ok(res.rows_affected())
+    }
+
+    /// Reopen a single intent back to open (clearing terminal/claim state).
+    pub async fn reopen_intent(
+        &self,
+        exploration_id: i64,
+        id: i64,
+    ) -> Result<bool, ExplorationError> {
+        let res = sqlx::query(
+            "UPDATE exploration_nodes SET state='open', completed_at=NULL, blocked_reason=NULL, \
+             unclaim_token=NULL \
+             WHERE id=$1 AND exploration_id=$2 AND kind='intent'",
+        )
+        .bind(id)
+        .bind(exploration_id)
+        .execute(self.db.pool())
+        .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    /// Soft-delete an intent (mark deleted, record reason). Returns the previous
+    /// state string, or `None` if not found.
+    pub async fn soft_delete_intent(
+        &self,
+        exploration_id: i64,
+        id: i64,
+        reason: &str,
+    ) -> Result<Option<String>, ExplorationError> {
+        let row = sqlx::query(
+            "UPDATE exploration_nodes SET state='deleted', origin='deleted', delete_reason=$3 \
+             WHERE id=$1 AND exploration_id=$2 AND kind='intent' \
+             RETURNING state",
+        )
+        .bind(id)
+        .bind(exploration_id)
+        .bind(reason)
+        .fetch_optional(self.db.pool())
+        .await?;
+        Ok(row.map(|r| r.get("state")))
     }
 
     /// Forward activity read: rows with `seq > since`, optionally scoped to one

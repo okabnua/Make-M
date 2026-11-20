@@ -514,6 +514,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "database",
+ "exploration",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "enrichment"
 version = "0.1.0"
 dependencies = [
@@ -581,6 +596,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "database",
+ "rand",
  "serde",
  "serde_json",
  "sqlx",

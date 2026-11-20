@@ -12,6 +12,7 @@ database = { path = "../database" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { workspace = true }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+rand = "0.8"
 thiserror = { workspace = true }
 
 [dev-dependencies]
